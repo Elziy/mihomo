@@ -67,6 +67,9 @@ type General struct {
 	EBpf                    EBpf              `json:"-"`
 	GlobalClientFingerprint string            `json:"global-client-fingerprint"`
 	GlobalUA                string            `json:"global-ua"`
+	UserStatistic           bool              `json:"user-statistic"`
+	RuleStatistic           bool              `json:"rule-statistic"`
+	UDPStatistic            bool              `json:"udp-statistic"`
 }
 
 // Inbound config
@@ -327,6 +330,9 @@ type RawConfig struct {
 	GlobalClientFingerprint string            `yaml:"global-client-fingerprint"`
 	GlobalUA                string            `yaml:"global-ua"`
 	KeepAliveInterval       int               `yaml:"keep-alive-interval"`
+	UserStatistic           bool              `yaml:"user-statistic"`
+	RuleStatistic           bool              `yaml:"rule-statistic"`
+	UDPStatistic            bool              `yaml:"udp-statistic"`
 
 	Sniffer       RawSniffer                `yaml:"sniffer" json:"sniffer"`
 	ProxyProvider map[string]map[string]any `yaml:"proxy-providers"`
@@ -637,6 +643,10 @@ func parseGeneral(cfg *RawConfig) (*General, error) {
 	C.ASNUrl = cfg.GeoXUrl.ASN
 	C.GeodataMode = cfg.GeodataMode
 	C.UA = cfg.GlobalUA
+	C.UserStatistic = cfg.UserStatistic
+	C.RuleStatistic = cfg.RuleStatistic
+	C.UDPStatistic = cfg.UDPStatistic
+
 	if cfg.KeepAliveInterval != 0 {
 		N.KeepAliveInterval = time.Duration(cfg.KeepAliveInterval) * time.Second
 	}
@@ -706,6 +716,9 @@ func parseGeneral(cfg *RawConfig) (*General, error) {
 		EBpf:                    cfg.EBpf,
 		GlobalClientFingerprint: cfg.GlobalClientFingerprint,
 		GlobalUA:                cfg.GlobalUA,
+		UserStatistic:           cfg.UserStatistic,
+		RuleStatistic:           cfg.RuleStatistic,
+		UDPStatistic:            cfg.UDPStatistic,
 	}, nil
 }
 

@@ -78,6 +78,8 @@ func router(isDebug bool, withAuth bool) *chi.Mux {
 		r.Get("/", hello)
 		r.Get("/logs", getLogs)
 		r.Get("/traffic", traffic)
+		r.Get("/statistic", trafficStatistic)
+		r.Delete("/resetStatistic", resetStatistic)
 		r.Get("/memory", memory)
 		r.Get("/version", version)
 		r.Mount("/configs", configRouter())
@@ -285,6 +287,16 @@ func traffic(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
+}
+
+func trafficStatistic(w http.ResponseWriter, r *http.Request) {
+	s := statistic.DefaultManager.TrafficStatistic()
+	render.JSON(w, r, s)
+}
+
+func resetStatistic(w http.ResponseWriter, r *http.Request) {
+	statistic.DefaultManager.ResetStatistic()
+	render.JSON(w, r, render.M{"message": "reset success"})
 }
 
 func memory(w http.ResponseWriter, r *http.Request) {

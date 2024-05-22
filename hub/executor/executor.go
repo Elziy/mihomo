@@ -158,6 +158,9 @@ func GetGeneral() *config.General {
 		Interface:         dialer.DefaultInterface.Load(),
 		Sniffing:          tunnel.IsSniffing(),
 		TCPConcurrent:     dialer.GetTcpConcurrent(),
+		UserStatistic:     C.UserStatistic,
+		RuleStatistic:     C.RuleStatistic,
+		UDPStatistic:      C.UDPStatistic,
 	}
 
 	return general
