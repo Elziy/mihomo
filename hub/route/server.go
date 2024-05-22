@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -261,7 +262,20 @@ func traffic(w http.ResponseWriter, r *http.Request) {
 		render.Status(r, http.StatusOK)
 	}
 
-	tick := time.NewTicker(time.Second)
+	intervalStr := r.URL.Query().Get("interval")
+	interval := 1000
+	if intervalStr != "" {
+		t, err := strconv.Atoi(intervalStr)
+		if err != nil {
+			render.Status(r, http.StatusBadRequest)
+			render.JSON(w, r, ErrBadRequest)
+			return
+		}
+
+		interval = t
+	}
+
+	tick := time.NewTicker(time.Millisecond * time.Duration(interval))
 	defer tick.Stop()
 	t := statistic.DefaultManager
 	buf := &bytes.Buffer{}
@@ -314,7 +328,20 @@ func memory(w http.ResponseWriter, r *http.Request) {
 		render.Status(r, http.StatusOK)
 	}
 
-	tick := time.NewTicker(time.Second)
+	intervalStr := r.URL.Query().Get("interval")
+	interval := 1000
+	if intervalStr != "" {
+		t, err := strconv.Atoi(intervalStr)
+		if err != nil {
+			render.Status(r, http.StatusBadRequest)
+			render.JSON(w, r, ErrBadRequest)
+			return
+		}
+
+		interval = t
+	}
+
+	tick := time.NewTicker(time.Millisecond * time.Duration(interval))
 	defer tick.Stop()
 	t := statistic.DefaultManager
 	buf := &bytes.Buffer{}
