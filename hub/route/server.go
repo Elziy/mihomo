@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -78,6 +79,8 @@ func router(isDebug bool, withAuth bool) *chi.Mux {
 		r.Get("/", hello)
 		r.Get("/logs", getLogs)
 		r.Get("/traffic", traffic)
+		r.Get("/statistic", trafficStatistic)
+		r.Delete("/resetStatistic", resetStatistic)
 		r.Get("/memory", memory)
 		r.Get("/version", version)
 		r.Mount("/configs", configRouter())
@@ -259,7 +262,20 @@ func traffic(w http.ResponseWriter, r *http.Request) {
 		render.Status(r, http.StatusOK)
 	}
 
-	tick := time.NewTicker(time.Second)
+	intervalStr := r.URL.Query().Get("interval")
+	interval := 1000
+	if intervalStr != "" {
+		t, err := strconv.Atoi(intervalStr)
+		if err != nil {
+			render.Status(r, http.StatusBadRequest)
+			render.JSON(w, r, ErrBadRequest)
+			return
+		}
+
+		interval = t
+	}
+
+	tick := time.NewTicker(time.Millisecond * time.Duration(interval))
 	defer tick.Stop()
 	t := statistic.DefaultManager
 	buf := &bytes.Buffer{}
@@ -287,6 +303,16 @@ func traffic(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func trafficStatistic(w http.ResponseWriter, r *http.Request) {
+	s := statistic.DefaultManager.TrafficStatistic()
+	render.JSON(w, r, s)
+}
+
+func resetStatistic(w http.ResponseWriter, r *http.Request) {
+	statistic.DefaultManager.ResetStatistic()
+	render.JSON(w, r, render.M{"message": "reset success"})
+}
+
 func memory(w http.ResponseWriter, r *http.Request) {
 	var wsConn net.Conn
 	if r.Header.Get("Upgrade") == "websocket" {
@@ -302,7 +328,20 @@ func memory(w http.ResponseWriter, r *http.Request) {
 		render.Status(r, http.StatusOK)
 	}
 
-	tick := time.NewTicker(time.Second)
+	intervalStr := r.URL.Query().Get("interval")
+	interval := 1000
+	if intervalStr != "" {
+		t, err := strconv.Atoi(intervalStr)
+		if err != nil {
+			render.Status(r, http.StatusBadRequest)
+			render.JSON(w, r, ErrBadRequest)
+			return
+		}
+
+		interval = t
+	}
+
+	tick := time.NewTicker(time.Millisecond * time.Duration(interval))
 	defer tick.Stop()
 	t := statistic.DefaultManager
 	buf := &bytes.Buffer{}

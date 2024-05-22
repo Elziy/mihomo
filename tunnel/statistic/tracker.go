@@ -1,6 +1,7 @@
 package statistic
 
 import (
+	"fmt"
 	"io"
 	"net"
 	"net/netip"
@@ -54,6 +55,8 @@ func (tt *tcpTracker) Read(b []byte) (int, error) {
 	download := int64(n)
 	if tt.pushToManager {
 		tt.manager.PushDownloaded(download)
+		tt.manager.PushUserDownloaded(tt.Metadata.SrcIP.String(), download, tt.Chain.Last() != "DIRECT")
+		tt.manager.PushRuleDownloaded(fmt.Sprintf("%s(%s)", tt.Rule, tt.RulePayload), download)
 	}
 	tt.DownloadTotal.Add(download)
 	return n, err
@@ -64,6 +67,8 @@ func (tt *tcpTracker) ReadBuffer(buffer *buf.Buffer) (err error) {
 	download := int64(buffer.Len())
 	if tt.pushToManager {
 		tt.manager.PushDownloaded(download)
+		tt.manager.PushUserDownloaded(tt.Metadata.SrcIP.String(), download, tt.Chain.Last() != "DIRECT")
+		tt.manager.PushRuleDownloaded(fmt.Sprintf("%s(%s)", tt.Rule, tt.RulePayload), download)
 	}
 	tt.DownloadTotal.Add(download)
 	return
@@ -73,6 +78,8 @@ func (tt *tcpTracker) UnwrapReader() (io.Reader, []N.CountFunc) {
 	return tt.Conn, []N.CountFunc{func(download int64) {
 		if tt.pushToManager {
 			tt.manager.PushDownloaded(download)
+			tt.manager.PushUserDownloaded(tt.Metadata.SrcIP.String(), download, tt.Chain.Last() != "DIRECT")
+			tt.manager.PushRuleDownloaded(fmt.Sprintf("%s(%s)", tt.Rule, tt.RulePayload), download)
 		}
 		tt.DownloadTotal.Add(download)
 	}}
@@ -83,6 +90,8 @@ func (tt *tcpTracker) Write(b []byte) (int, error) {
 	upload := int64(n)
 	if tt.pushToManager {
 		tt.manager.PushUploaded(upload)
+		tt.manager.PushUserUploaded(tt.Metadata.SrcIP.String(), upload, tt.Chain.Last() != "DIRECT")
+		tt.manager.PushRuleUploaded(fmt.Sprintf("%s(%s)", tt.Rule, tt.RulePayload), upload)
 	}
 	tt.UploadTotal.Add(upload)
 	return n, err
@@ -93,6 +102,8 @@ func (tt *tcpTracker) WriteBuffer(buffer *buf.Buffer) (err error) {
 	err = tt.Conn.WriteBuffer(buffer)
 	if tt.pushToManager {
 		tt.manager.PushUploaded(upload)
+		tt.manager.PushUserUploaded(tt.Metadata.SrcIP.String(), upload, tt.Chain.Last() != "DIRECT")
+		tt.manager.PushRuleUploaded(fmt.Sprintf("%s(%s)", tt.Rule, tt.RulePayload), upload)
 	}
 	tt.UploadTotal.Add(upload)
 	return
@@ -102,6 +113,8 @@ func (tt *tcpTracker) UnwrapWriter() (io.Writer, []N.CountFunc) {
 	return tt.Conn, []N.CountFunc{func(upload int64) {
 		if tt.pushToManager {
 			tt.manager.PushUploaded(upload)
+			tt.manager.PushUserUploaded(tt.Metadata.SrcIP.String(), upload, tt.Chain.Last() != "DIRECT")
+			tt.manager.PushRuleUploaded(fmt.Sprintf("%s(%s)", tt.Rule, tt.RulePayload), upload)
 		}
 		tt.UploadTotal.Add(upload)
 	}}
@@ -154,9 +167,13 @@ func NewTCPTracker(conn C.Conn, manager *Manager, metadata *C.Metadata, rule C.R
 	if pushToManager {
 		if uploadTotal > 0 {
 			manager.PushUploaded(uploadTotal)
+			manager.PushUserUploaded(metadata.SrcIP.String(), uploadTotal, t.Chain.Last() != "DIRECT")
+			manager.PushRuleUploaded(fmt.Sprintf("%s(%s)", rule.RuleType().String(), rule.Payload()), uploadTotal)
 		}
 		if downloadTotal > 0 {
 			manager.PushDownloaded(downloadTotal)
+			manager.PushUserDownloaded(metadata.SrcIP.String(), downloadTotal, t.Chain.Last() != "DIRECT")
+			manager.PushRuleDownloaded(fmt.Sprintf("%s(%s)", rule.RuleType().String(), rule.Payload()), downloadTotal)
 		}
 	}
 
@@ -190,6 +207,10 @@ func (ut *udpTracker) ReadFrom(b []byte) (int, net.Addr, error) {
 	download := int64(n)
 	if ut.pushToManager {
 		ut.manager.PushDownloaded(download)
+		if C.UDPStatistic {
+			ut.manager.PushUserDownloaded(ut.Metadata.SrcIP.String(), download, ut.Chain.Last() != "DIRECT")
+			ut.manager.PushRuleDownloaded(fmt.Sprintf("%s(%s)", ut.Rule, ut.RulePayload), download)
+		}
 	}
 	ut.DownloadTotal.Add(download)
 	return n, addr, err
@@ -200,6 +221,10 @@ func (ut *udpTracker) WaitReadFrom() (data []byte, put func(), addr net.Addr, er
 	download := int64(len(data))
 	if ut.pushToManager {
 		ut.manager.PushDownloaded(download)
+		if C.UDPStatistic {
+			ut.manager.PushUserDownloaded(ut.Metadata.SrcIP.String(), download, ut.Chain.Last() != "DIRECT")
+			ut.manager.PushRuleDownloaded(fmt.Sprintf("%s(%s)", ut.Rule, ut.RulePayload), download)
+		}
 	}
 	ut.DownloadTotal.Add(download)
 	return
@@ -210,6 +235,10 @@ func (ut *udpTracker) WriteTo(b []byte, addr net.Addr) (int, error) {
 	upload := int64(n)
 	if ut.pushToManager {
 		ut.manager.PushUploaded(upload)
+		if C.UDPStatistic {
+			ut.manager.PushUserUploaded(ut.Metadata.SrcIP.String(), upload, ut.Chain.Last() != "DIRECT")
+			ut.manager.PushRuleUploaded(fmt.Sprintf("%s(%s)", ut.Rule, ut.RulePayload), upload)
+		}
 	}
 	ut.UploadTotal.Add(upload)
 	return n, err
@@ -245,9 +274,17 @@ func NewUDPTracker(conn C.PacketConn, manager *Manager, metadata *C.Metadata, ru
 	if pushToManager {
 		if uploadTotal > 0 {
 			manager.PushUploaded(uploadTotal)
+			if C.UDPStatistic {
+				manager.PushUserUploaded(metadata.SrcIP.String(), uploadTotal, ut.Chain.Last() != "DIRECT")
+				manager.PushRuleUploaded(fmt.Sprintf("%s(%s)", rule.RuleType().String(), rule.Payload()), uploadTotal)
+			}
 		}
 		if downloadTotal > 0 {
 			manager.PushDownloaded(downloadTotal)
+			if C.UDPStatistic {
+				manager.PushUserDownloaded(metadata.SrcIP.String(), downloadTotal, ut.Chain.Last() != "DIRECT")
+				manager.PushRuleDownloaded(fmt.Sprintf("%s(%s)", rule.RuleType().String(), rule.Payload()), downloadTotal)
+			}
 		}
 	}
 
