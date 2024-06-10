@@ -54,6 +54,7 @@ type proxyProviderSchema struct {
 	HealthCheck healthCheckSchema   `provider:"health-check,omitempty"`
 	Override    OverrideSchema      `provider:"override,omitempty"`
 	Header      map[string][]string `provider:"header,omitempty"`
+	Icon        string              `provider:"icon,omitempty"`
 }
 
 func ParseProxyProvider(name string, mapping map[string]any) (types.ProxyProvider, error) {
@@ -100,6 +101,7 @@ func ParseProxyProvider(name string, mapping map[string]any) (types.ProxyProvide
 		return nil, fmt.Errorf("%w: %s", errVehicleType, schema.Type)
 	}
 
+	icon := schema.Icon
 	interval := time.Duration(uint(schema.Interval)) * time.Second
 	filter := schema.Filter
 	excludeFilter := schema.ExcludeFilter
@@ -107,5 +109,5 @@ func ParseProxyProvider(name string, mapping map[string]any) (types.ProxyProvide
 	dialerProxy := schema.DialerProxy
 	override := schema.Override
 
-	return NewProxySetProvider(name, interval, filter, excludeFilter, excludeType, dialerProxy, override, vehicle, hc)
+	return NewProxySetProvider(name, interval, icon, filter, excludeFilter, excludeType, dialerProxy, override, vehicle, hc)
 }

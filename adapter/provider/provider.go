@@ -43,6 +43,7 @@ type proxySetProvider struct {
 	healthCheck      *HealthCheck
 	version          uint32
 	subscriptionInfo *SubscriptionInfo
+	icon             string
 }
 
 func (pp *proxySetProvider) MarshalJSON() ([]byte, error) {
@@ -55,6 +56,7 @@ func (pp *proxySetProvider) MarshalJSON() ([]byte, error) {
 		"expectedStatus":   pp.healthCheck.expectedStatus.String(),
 		"updatedAt":        pp.UpdatedAt,
 		"subscriptionInfo": pp.subscriptionInfo,
+		"icon":             pp.icon,
 	})
 }
 
@@ -68,6 +70,10 @@ func (pp *proxySetProvider) Name() string {
 
 func (pp *proxySetProvider) HealthCheck() {
 	pp.healthCheck.check()
+}
+
+func (pp *proxySetProvider) Icon() string {
+	return pp.icon
 }
 
 func (pp *proxySetProvider) Update() error {
@@ -168,7 +174,7 @@ func stopProxyProvider(pd *ProxySetProvider) {
 	_ = pd.Fetcher.Destroy()
 }
 
-func NewProxySetProvider(name string, interval time.Duration, filter string, excludeFilter string, excludeType string, dialerProxy string, override OverrideSchema, vehicle types.Vehicle, hc *HealthCheck) (*ProxySetProvider, error) {
+func NewProxySetProvider(name string, interval time.Duration, icon string, filter string, excludeFilter string, excludeType string, dialerProxy string, override OverrideSchema, vehicle types.Vehicle, hc *HealthCheck) (*ProxySetProvider, error) {
 	excludeFilterReg, err := regexp2.Compile(excludeFilter, regexp2.None)
 	if err != nil {
 		return nil, fmt.Errorf("invalid excludeFilter regex: %w", err)
@@ -194,6 +200,7 @@ func NewProxySetProvider(name string, interval time.Duration, filter string, exc
 	pd := &proxySetProvider{
 		proxies:     []C.Proxy{},
 		healthCheck: hc,
+		icon:        icon,
 	}
 
 	fetcher := resource.NewFetcher[[]C.Proxy](name, interval, vehicle, proxiesParseAndFilter(filter, excludeFilter, excludeTypeArray, filterRegs, excludeFilterReg, dialerProxy, override), proxiesOnUpdate(pd))
@@ -213,6 +220,7 @@ type compatibleProvider struct {
 	healthCheck *HealthCheck
 	proxies     []C.Proxy
 	version     uint32
+	icon        string
 }
 
 func (cp *compatibleProvider) MarshalJSON() ([]byte, error) {
@@ -223,6 +231,7 @@ func (cp *compatibleProvider) MarshalJSON() ([]byte, error) {
 		"proxies":        cp.Proxies(),
 		"testUrl":        cp.healthCheck.url,
 		"expectedStatus": cp.healthCheck.expectedStatus.String(),
+		"icon":           cp.icon,
 	})
 }
 
@@ -236,6 +245,10 @@ func (cp *compatibleProvider) Name() string {
 
 func (cp *compatibleProvider) HealthCheck() {
 	cp.healthCheck.check()
+}
+
+func (cp *compatibleProvider) Icon() string {
+	return cp.icon
 }
 
 func (cp *compatibleProvider) Update() error {
