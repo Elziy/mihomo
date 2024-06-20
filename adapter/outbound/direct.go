@@ -3,7 +3,6 @@ package outbound
 import (
 	"context"
 	"errors"
-	"net/netip"
 	"os"
 	"strconv"
 
@@ -58,11 +57,15 @@ func (d *Direct) ListenPacketContext(ctx context.Context, metadata *C.Metadata, 
 		}
 		metadata.DstIP = ip
 	}
-	pc, err := dialer.NewDialer(d.Base.DialOptions(opts...)...).ListenPacket(ctx, "udp", "", netip.AddrPortFrom(metadata.DstIP, metadata.DstPort))
+	pc, err := dialer.NewDialer(d.Base.DialOptions(opts...)...).ListenPacket(ctx, "udp", "", metadata.AddrPort())
 	if err != nil {
 		return nil, err
 	}
 	return d.loopBack.NewPacketConn(newPacketConn(pc, d)), nil
+}
+
+func (d *Direct) IsL3Protocol(metadata *C.Metadata) bool {
+	return true // tell DNSDialer don't send domain to DialContext, avoid lookback to DefaultResolver
 }
 
 func NewDirectWithOption(option DirectOption) *Direct {
