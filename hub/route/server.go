@@ -51,7 +51,7 @@ func SetUIPath(path string) {
 	uiPath = C.Path.Resolve(path)
 }
 
-func router(isDebug bool, withAuth bool) *chi.Mux {
+func router(isDebug bool, withAuth bool, dohServer string) *chi.Mux {
 	r := chi.NewRouter()
 	corsM := cors.New(cors.Options{
 		AllowedOrigins: []string{"*"},
@@ -107,11 +107,15 @@ func router(isDebug bool, withAuth bool) *chi.Mux {
 			})
 		})
 	}
+	if len(dohServer) > 0 && dohServer[0] == '/' {
+		r.Mount(dohServer, dohRouter())
+	}
+
 	return r
 }
 
 func Start(addr string, tlsAddr string, secret string,
-	certificate, privateKey string, isDebug bool) {
+	certificate, privateKey string, dohServer string, isDebug bool) {
 	if serverAddr != "" {
 		return
 	}
@@ -136,7 +140,7 @@ func Start(addr string, tlsAddr string, secret string,
 			serverAddr = l.Addr().String()
 			log.Infoln("RESTful API tls listening at: %s", serverAddr)
 			tlsServe := &http.Server{
-				Handler: router(isDebug, true),
+				Handler: router(isDebug, true, dohServer),
 				TLSConfig: &tls.Config{
 					Certificates: []tls.Certificate{c},
 				},
@@ -155,13 +159,13 @@ func Start(addr string, tlsAddr string, secret string,
 	serverAddr = l.Addr().String()
 	log.Infoln("RESTful API listening at: %s", serverAddr)
 
-	if err = http.Serve(l, router(isDebug, true)); err != nil {
+	if err = http.Serve(l, router(isDebug, true, dohServer)); err != nil {
 		log.Errorln("External controller serve error: %s", err)
 	}
 
 }
 
-func StartUnix(addr string, isDebug bool) {
+func StartUnix(addr string, dohServer string, isDebug bool) {
 	addr = C.Path.Resolve(addr)
 
 	dir := filepath.Dir(addr)
@@ -189,7 +193,7 @@ func StartUnix(addr string, isDebug bool) {
 	serverAddr = l.Addr().String()
 	log.Infoln("RESTful API unix listening at: %s", serverAddr)
 
-	if err = http.Serve(l, router(isDebug, false)); err != nil {
+	if err = http.Serve(l, router(isDebug, false, dohServer)); err != nil {
 		log.Errorln("External controller unix serve error: %s", err)
 	}
 }

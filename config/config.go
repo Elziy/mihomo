@@ -42,6 +42,7 @@ import (
 	T "github.com/metacubex/mihomo/tunnel"
 
 	orderedmap "github.com/wk8/go-ordered-map/v2"
+	"golang.org/x/exp/slices"
 	"gopkg.in/yaml.v3"
 )
 
@@ -99,6 +100,7 @@ type Controller struct {
 	ExternalControllerTLS  string `json:"-"`
 	ExternalControllerUnix string `json:"-"`
 	ExternalUI             string `json:"-"`
+	ExternalDohServer      string `json:"-"`
 	Secret                 string `json:"-"`
 }
 
@@ -325,6 +327,7 @@ type RawConfig struct {
 	ExternalUI              string            `yaml:"external-ui"`
 	ExternalUIURL           string            `yaml:"external-ui-url" json:"external-ui-url"`
 	ExternalUIName          string            `yaml:"external-ui-name" json:"external-ui-name"`
+	ExternalDohServer       string            `yaml:"external-doh-server"`
 	Secret                  string            `yaml:"secret"`
 	Interface               string            `yaml:"interface-name"`
 	RoutingMark             int               `yaml:"routing-mark"`
@@ -510,7 +513,7 @@ func UnmarshalRawConfig(buf []byte) (*RawConfig, error) {
 		},
 		Sniffer: RawSniffer{
 			Enable:          false,
-			Sniffing:        []string{},
+			Sniff:           map[string]RawSniffingConfig{},
 			ForceDomain:     []string{},
 			SkipDomain:      []string{},
 			Ports:           []string{},
@@ -707,6 +710,7 @@ func parseGeneral(cfg *RawConfig) (*General, error) {
 			Secret:                 cfg.Secret,
 			ExternalControllerUnix: cfg.ExternalControllerUnix,
 			ExternalControllerTLS:  cfg.ExternalControllerTLS,
+			ExternalDohServer:      cfg.ExternalDohServer,
 		},
 		UnifiedDelay:            cfg.UnifiedDelay,
 		Mode:                    cfg.Mode,
@@ -801,6 +805,9 @@ func parseProxies(cfg *RawConfig) (proxies map[string]C.Proxy, providersMap map[
 		providersMap[name] = pd
 		AllProviders = append(AllProviders, name)
 	}
+
+	slices.Sort(AllProxies)
+	slices.Sort(AllProviders)
 
 	// parse proxy group
 	for idx, mapping := range groupsConfig {
@@ -1070,6 +1077,16 @@ func parseNameServer(servers []string, respectRules bool, preferH3 bool) ([]dns.
 	var nameservers []dns.NameServer
 
 	for idx, server := range servers {
+		if strings.HasPrefix(server, "dhcp://") {
+			nameservers = append(
+				nameservers,
+				dns.NameServer{
+					Net:  "dhcp",
+					Addr: server[len("dhcp://"):],
+				},
+			)
+			continue
+		}
 		server = parsePureDNSServer(server)
 		u, err := url.Parse(server)
 		if err != nil {
@@ -1090,13 +1107,16 @@ func parseNameServer(servers []string, respectRules bool, preferH3 bool) ([]dns.
 		case "tls":
 			addr, err = hostWithDefaultPort(u.Host, "853")
 			dnsNetType = "tcp-tls" // DNS over TLS
-		case "https":
+		case "http", "https":
 			addr, err = hostWithDefaultPort(u.Host, "443")
+			dnsNetType = "https" // DNS over HTTPS
+			if u.Scheme == "http" {
+				addr, err = hostWithDefaultPort(u.Host, "80")
+			}
 			if err == nil {
 				proxyName = ""
-				clearURL := url.URL{Scheme: "https", Host: addr, Path: u.Path, User: u.User}
+				clearURL := url.URL{Scheme: u.Scheme, Host: addr, Path: u.Path, User: u.User}
 				addr = clearURL.String()
-				dnsNetType = "https" // DNS over HTTPS
 				if len(u.Fragment) != 0 {
 					for _, s := range strings.Split(u.Fragment, "&") {
 						arr := strings.Split(s, "=")
@@ -1112,9 +1132,6 @@ func parseNameServer(servers []string, respectRules bool, preferH3 bool) ([]dns.
 					}
 				}
 			}
-		case "dhcp":
-			addr = u.Host
-			dnsNetType = "dhcp" // UDP from DHCP
 		case "quic":
 			addr, err = hostWithDefaultPort(u.Host, "853")
 			dnsNetType = "quic" // DNS over QUIC
@@ -1187,6 +1204,7 @@ func parsePureDNSServer(server string) string {
 		}
 	}
 }
+
 func parseNameServerPolicy(nsPolicy *orderedmap.OrderedMap[string, any], ruleProviders map[string]providerTypes.RuleProvider, respectRules bool, preferH3 bool) (*orderedmap.OrderedMap[string, []dns.NameServer], error) {
 	policy := orderedmap.New[string, []dns.NameServer]()
 	updatedPolicy := orderedmap.New[string, any]()
@@ -1571,7 +1589,7 @@ func parseSniffer(snifferRaw RawSniffer) (*Sniffer, error) {
 			}
 		}
 	} else {
-		if sniffer.Enable {
+		if sniffer.Enable && len(snifferRaw.Sniffing) != 0 {
 			// Deprecated: Use Sniff instead
 			log.Warnln("Deprecated: Use Sniff instead")
 		}
