@@ -51,6 +51,8 @@ type Resolver struct {
 	cache                 dnsCache
 	policy                []dnsPolicy
 	proxyServer           []dnsClient
+	proxyServerTTL        uint
+	proxyServerResolver   bool
 }
 
 func (r *Resolver) LookupIPPrimaryIPv4(ctx context.Context, host string) (ips []netip.Addr, err error) {
@@ -191,7 +193,7 @@ func (r *Resolver) exchangeWithoutCache(ctx context.Context, m *D.Msg) (msg *D.M
 				msg.Extra = lo.Filter(msg.Extra, func(rr D.RR, index int) bool {
 					return rr.Header().Rrtype != D.TypeOPT
 				})
-				putMsgToCache(r.cache, q.String(), q, msg)
+				putMsgToCache(r.cache, q.String(), q, msg, r.proxyServerResolver, uint32(r.proxyServerTTL))
 			}
 		}()
 
@@ -410,6 +412,7 @@ type Config struct {
 	Main, Fallback []NameServer
 	Default        []NameServer
 	ProxyServer    []NameServer
+	ProxyServerTTL uint
 	IPv6           bool
 	IPv6Timeout    uint
 	EnhancedMode   C.DNSMode
@@ -467,11 +470,13 @@ func NewResolver(config Config) *Resolver {
 		cache = arc.New(arc.WithSize[string, *D.Msg](4096))
 	}
 	r := &Resolver{
-		ipv6:        config.IPv6,
-		main:        cacheTransform(config.Main),
-		cache:       cache,
-		hosts:       config.Hosts,
-		ipv6Timeout: time.Duration(config.IPv6Timeout) * time.Millisecond,
+		ipv6:                config.IPv6,
+		main:                cacheTransform(config.Main),
+		cache:               cache,
+		hosts:               config.Hosts,
+		ipv6Timeout:         time.Duration(config.IPv6Timeout) * time.Millisecond,
+		proxyServerTTL:      config.ProxyServerTTL,
+		proxyServerResolver: false,
 	}
 
 	if len(config.Fallback) != 0 {
@@ -572,11 +577,13 @@ func NewResolver(config Config) *Resolver {
 
 func NewProxyServerHostResolver(old *Resolver) *Resolver {
 	r := &Resolver{
-		ipv6:        old.ipv6,
-		main:        old.proxyServer,
-		cache:       old.cache,
-		hosts:       old.hosts,
-		ipv6Timeout: old.ipv6Timeout,
+		ipv6:                old.ipv6,
+		main:                old.proxyServer,
+		cache:               old.cache,
+		hosts:               old.hosts,
+		ipv6Timeout:         old.ipv6Timeout,
+		proxyServerTTL:      old.proxyServerTTL,
+		proxyServerResolver: true,
 	}
 	return r
 }

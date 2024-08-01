@@ -46,7 +46,7 @@ func updateTTL(records []D.RR, ttl uint32) {
 	}
 }
 
-func putMsgToCache(c dnsCache, key string, q D.Question, msg *D.Msg) {
+func putMsgToCache(c dnsCache, key string, q D.Question, msg *D.Msg, proxyServerResolver bool, proxyServerTTL uint32) {
 	// skip dns cache for acme challenge
 	if q.Qtype == D.TypeTXT && strings.HasPrefix(q.Name, "_acme-challenge.") {
 		log.Debugln("[DNS] dns cache ignored because of acme challenge for: %s", q.Name)
@@ -60,6 +60,9 @@ func putMsgToCache(c dnsCache, key string, q D.Question, msg *D.Msg) {
 		ttl = serverFailureCacheTTL
 	} else {
 		ttl = minimalTTL(append(append(msg.Answer, msg.Ns...), msg.Extra...))
+	}
+	if proxyServerResolver && proxyServerTTL > 0 {
+		ttl = proxyServerTTL
 	}
 	if ttl == 0 {
 		return

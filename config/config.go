@@ -116,22 +116,23 @@ type NTP struct {
 
 // DNS config
 type DNS struct {
-	Enable                bool             `yaml:"enable"`
-	PreferH3              bool             `yaml:"prefer-h3"`
-	IPv6                  bool             `yaml:"ipv6"`
-	IPv6Timeout           uint             `yaml:"ipv6-timeout"`
-	UseSystemHosts        bool             `yaml:"use-system-hosts"`
-	NameServer            []dns.NameServer `yaml:"nameserver"`
-	Fallback              []dns.NameServer `yaml:"fallback"`
-	FallbackFilter        FallbackFilter   `yaml:"fallback-filter"`
-	Listen                string           `yaml:"listen"`
-	EnhancedMode          C.DNSMode        `yaml:"enhanced-mode"`
-	DefaultNameserver     []dns.NameServer `yaml:"default-nameserver"`
-	CacheAlgorithm        string           `yaml:"cache-algorithm"`
-	FakeIPRange           *fakeip.Pool
-	Hosts                 *trie.DomainTrie[resolver.HostValue]
-	NameServerPolicy      *orderedmap.OrderedMap[string, []dns.NameServer]
-	ProxyServerNameserver []dns.NameServer
+	Enable                   bool             `yaml:"enable"`
+	PreferH3                 bool             `yaml:"prefer-h3"`
+	IPv6                     bool             `yaml:"ipv6"`
+	IPv6Timeout              uint             `yaml:"ipv6-timeout"`
+	UseSystemHosts           bool             `yaml:"use-system-hosts"`
+	NameServer               []dns.NameServer `yaml:"nameserver"`
+	Fallback                 []dns.NameServer `yaml:"fallback"`
+	FallbackFilter           FallbackFilter   `yaml:"fallback-filter"`
+	Listen                   string           `yaml:"listen"`
+	EnhancedMode             C.DNSMode        `yaml:"enhanced-mode"`
+	DefaultNameserver        []dns.NameServer `yaml:"default-nameserver"`
+	CacheAlgorithm           string           `yaml:"cache-algorithm"`
+	FakeIPRange              *fakeip.Pool
+	Hosts                    *trie.DomainTrie[resolver.HostValue]
+	NameServerPolicy         *orderedmap.OrderedMap[string, []dns.NameServer]
+	ProxyServerNameserver    []dns.NameServer
+	ProxyServerNameserverTTL uint
 }
 
 // FallbackFilter config
@@ -211,24 +212,25 @@ type RawNTP struct {
 }
 
 type RawDNS struct {
-	Enable                bool                                `yaml:"enable" json:"enable"`
-	PreferH3              bool                                `yaml:"prefer-h3" json:"prefer-h3"`
-	IPv6                  bool                                `yaml:"ipv6" json:"ipv6"`
-	IPv6Timeout           uint                                `yaml:"ipv6-timeout" json:"ipv6-timeout"`
-	UseHosts              bool                                `yaml:"use-hosts" json:"use-hosts"`
-	UseSystemHosts        bool                                `yaml:"use-system-hosts" json:"use-system-hosts"`
-	RespectRules          bool                                `yaml:"respect-rules" json:"respect-rules"`
-	NameServer            []string                            `yaml:"nameserver" json:"nameserver"`
-	Fallback              []string                            `yaml:"fallback" json:"fallback"`
-	FallbackFilter        RawFallbackFilter                   `yaml:"fallback-filter" json:"fallback-filter"`
-	Listen                string                              `yaml:"listen" json:"listen"`
-	EnhancedMode          C.DNSMode                           `yaml:"enhanced-mode" json:"enhanced-mode"`
-	FakeIPRange           string                              `yaml:"fake-ip-range" json:"fake-ip-range"`
-	FakeIPFilter          []string                            `yaml:"fake-ip-filter" json:"fake-ip-filter"`
-	DefaultNameserver     []string                            `yaml:"default-nameserver" json:"default-nameserver"`
-	CacheAlgorithm        string                              `yaml:"cache-algorithm" json:"cache-algorithm"`
-	NameServerPolicy      *orderedmap.OrderedMap[string, any] `yaml:"nameserver-policy" json:"nameserver-policy"`
-	ProxyServerNameserver []string                            `yaml:"proxy-server-nameserver" json:"proxy-server-nameserver"`
+	Enable                   bool                                `yaml:"enable" json:"enable"`
+	PreferH3                 bool                                `yaml:"prefer-h3" json:"prefer-h3"`
+	IPv6                     bool                                `yaml:"ipv6" json:"ipv6"`
+	IPv6Timeout              uint                                `yaml:"ipv6-timeout" json:"ipv6-timeout"`
+	UseHosts                 bool                                `yaml:"use-hosts" json:"use-hosts"`
+	UseSystemHosts           bool                                `yaml:"use-system-hosts" json:"use-system-hosts"`
+	RespectRules             bool                                `yaml:"respect-rules" json:"respect-rules"`
+	NameServer               []string                            `yaml:"nameserver" json:"nameserver"`
+	Fallback                 []string                            `yaml:"fallback" json:"fallback"`
+	FallbackFilter           RawFallbackFilter                   `yaml:"fallback-filter" json:"fallback-filter"`
+	Listen                   string                              `yaml:"listen" json:"listen"`
+	EnhancedMode             C.DNSMode                           `yaml:"enhanced-mode" json:"enhanced-mode"`
+	FakeIPRange              string                              `yaml:"fake-ip-range" json:"fake-ip-range"`
+	FakeIPFilter             []string                            `yaml:"fake-ip-filter" json:"fake-ip-filter"`
+	DefaultNameserver        []string                            `yaml:"default-nameserver" json:"default-nameserver"`
+	CacheAlgorithm           string                              `yaml:"cache-algorithm" json:"cache-algorithm"`
+	NameServerPolicy         *orderedmap.OrderedMap[string, any] `yaml:"nameserver-policy" json:"nameserver-policy"`
+	ProxyServerNameserver    []string                            `yaml:"proxy-server-nameserver" json:"proxy-server-nameserver"`
+	ProxyServerNameserverTTL uint                                `yaml:"proxy-server-nameserver-ttl" json:"proxy-server-nameserver-ttl"`
 }
 
 type RawFallbackFilter struct {
@@ -505,6 +507,7 @@ func UnmarshalRawConfig(buf []byte) (*RawConfig, error) {
 				"www.msftnsci.com",
 				"www.msftconnecttest.com",
 			},
+			ProxyServerNameserverTTL: 60,
 		},
 		Experimental: Experimental{
 			// https://github.com/quic-go/quic-go/issues/4178
@@ -1378,6 +1381,8 @@ func parseDNS(rawCfg *RawConfig, hosts *trie.DomainTrie[resolver.HostValue], rul
 	if dnsCfg.ProxyServerNameserver, err = parseNameServer(cfg.ProxyServerNameserver, false, cfg.PreferH3); err != nil {
 		return nil, err
 	}
+
+	dnsCfg.ProxyServerNameserverTTL = cfg.ProxyServerNameserverTTL
 
 	if len(cfg.DefaultNameserver) == 0 {
 		return nil, errors.New("default nameserver should have at least one nameserver")
