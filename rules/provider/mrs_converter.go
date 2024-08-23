@@ -2,6 +2,8 @@ package provider
 
 import (
 	"encoding/binary"
+	"errors"
+	"fmt"
 	"io"
 	"os"
 
@@ -16,7 +18,21 @@ func ConvertToMrs(buf []byte, behavior P.RuleBehavior, format P.RuleFormat, w io
 	if err != nil {
 		return err
 	}
+	if strategy.Count() == 0 {
+		return errors.New("empty rule")
+	}
 	if _strategy, ok := strategy.(mrsRuleStrategy); ok {
+		if format == P.MrsRule { // export to TextRule
+			_strategy.DumpMrs(func(key string) bool {
+				_, err = fmt.Fprintln(w, key)
+				if err != nil {
+					return false
+				}
+				return true
+			})
+			return nil
+		}
+
 		var encoder *zstd.Encoder
 		encoder, err = zstd.NewWriter(w)
 		if err != nil {
